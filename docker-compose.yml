@@ -1,0 +1,53 @@
+version: "3.9"
+services:
+
+  # Web service (flask application)
+  web:
+    # Use an image that is built from the Dockerfile in the directory specified under context
+    build:
+      context: ./flask-app
+      dockerfile: Dockerfile
+    # Restart the container always
+    restart: always
+    # Bind the container and the host machine to the exposed port
+    ports:
+      - "8080:8080"
+    # Set dependency on other services
+    depends_on:
+      - redis
+      - postgres
+
+  # Worker service (celery)
+  worker:
+    # Use an image that is built from the Dockerfile in the directory specified under context
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    # Mount host paths volumes
+    volumes:
+      - ./worker/data:/worker/data
+      - ./worker/models:/worker/models
+      - ./worker/metrics:/worker/metrics
+    # Set dependency on other service
+    depends_on:
+      - redis
+
+  # Redis service
+  redis:
+    # Use a public Redis image pulled from the Docker Hub registry
+    image: redis
+
+  # Postgres service (database)
+  postgres:
+    # Use a public Postgres image pulled from the Docker Hub registry
+    image: postgres:12.1-alpine
+    # Mount named volumes
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    # Bind the container and the host machine to the exposed port
+    ports:
+      - "5432:5432"
+
+# Named volumes
+volumes:
+  dbdata:
