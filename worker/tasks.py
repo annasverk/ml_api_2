@@ -46,6 +46,14 @@ def calculate_metrics(estimator, X_train, X_test, y_train, y_test):
     Calculate model performance metrics on both train and test set:
     - Accuracy, precision, recall, f1-score, and AUC-ROC for a classification task.
     - RMSE and MAE for a regression task.
+
+    :param estimator: Sklearn estimator
+    :param pd.DataFrame X_train: Train set
+    :param pd.DataFrame X_test: Test set
+    :param pd.DataFrame y_train: Train target
+    :param pd.DataFrame y_test: Test target
+    :return: Model metrics
+    :rtype: dict
     """
     model = str(estimator).split('(')[0]
     metrics = {}
@@ -83,6 +91,15 @@ def train(model_id, model, data, params, grid_search, param_grid):
     Train the given model with given parameters on the given data (json) and
     calculate its performance metrics.
     Save data, model and metrics into pkl files named by the model id.
+
+    :param int model_id: Model id
+    :param str model: Model to train
+    :param json data: Data to fit and test the model
+    :param str or dict params: Model parameters
+    :param bool grid_search: Whether to perform grid search
+    :param str or dict param_grid: Parameters grid for grid search
+    :return: Task result
+    :rtype: str
     """
     df = pd.read_json(data)
     X, y = df.iloc[:, :-1], df.iloc[:, -1]
@@ -118,6 +135,10 @@ def train(model_id, model, data, params, grid_search, param_grid):
 def predict(model_id):
     """
     Make model predictions on a train set and test set.
+
+    :param int model_id: Model id to get predictions for
+    :return: Predictions
+    :rtype: dict
     """
     with open(f'models/{model_id}.pkl', 'rb') as f:
         estimator = pickle.load(f)
@@ -137,6 +158,11 @@ def retrain(model_id, data):
     """
     Retrain the given model on a new training set and recalculate performance metrics.
     Save new train set, model and metrics into pkl files named by the model id.
+
+    :param int model_id: Model id to retrain
+    :param json data: Data to retrain
+    :return: Task result
+    :rtype: str
     """
     with open(f'models/{model_id}.pkl', 'rb') as f:
         estimator = pickle.load(f)
@@ -164,6 +190,10 @@ def retrain(model_id, data):
 def delete(model_id):
     """
     Delete a pkl file of the given model.
+
+    :param int model_id: Model id to delete pkl for
+    :return: Task result
+    :rtype: str
     """
     os.remove(f'models/{model_id}.pkl')
     return f'Model {model_id} is deleted'
@@ -173,6 +203,10 @@ def delete(model_id):
 def get_metrics(model_id):
     """
     Return performance metrics for the given model.
+
+    :param int model_id: Model id to get performance metrics for
+    :return: Train and test metrics
+    :rtype: dict
     """
     with open(f'metrics/{model_id}.pkl', 'rb') as f:
         res = pickle.load(f)

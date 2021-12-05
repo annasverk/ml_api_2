@@ -107,6 +107,10 @@ class MLModelsDAO:
         Return id of the celery prediction task for the given model.
         To get predictions, send a GET request to /results with a returned task id.
         Abort if the model was deleted.
+
+        :param int model_id: Model id to get predictions for
+        :return: Task id
+        :rtype: str
         """
         if model_id not in self.ml_models_all:
             return f'Model {model_id} does not exist', 404
@@ -122,6 +126,14 @@ class MLModelsDAO:
         If parameters are not set, use default values.
         If no exceptions, append model name and parameters to models_dao.ml_models_all dictionary.
         To check if the model is fitted, send a GET request to /results with a returned task id.
+
+        :param json data: Data to fit and test the model
+        :param str model: Model to train
+        :param str or dict params: Model parameters
+        :param bool grid_search: Whether to perform grid search
+        :param str or dict param_grid: Parameters grid for grid search
+        :return: Task id
+        :rtype: str
         """
         if model not in self.ml_models:
             return f'Can only train one of {self.ml_models} models', 404
@@ -159,9 +171,14 @@ class MLModelsDAO:
 
     def update(self, model_id, data):
         """
-        Return id of the celery prediction task for the given model on a new data.
+        Return id of the celery retraining task for the given model on a new data.
         Abort if the model was deleted or a new data includes another columns.
         To get predictions, send a GET request to /results with a returned task id.
+
+        :param int model_id: Model id to retrain
+        :param json data: Data to retrain
+        :return: Task id
+        :rtype: str
         """
         if model_id not in self.ml_models_all:
             return f'Model {model_id} does not exist', 404
@@ -176,6 +193,9 @@ class MLModelsDAO:
         """
         Delete a pkl file of the given model.
         To check if the model is deleted, send a GET request to /results with a returned task id.
+
+        :param int model_id: Model id to delete pkl for
+        :return: None
         """
         if model_id not in self.ml_models_all:
             return f'Model {model_id} does not exist', 404
@@ -195,6 +215,9 @@ class MLModels(Resource):
     def get(self):
         """
         Return a list of models available for training.
+
+        :return: List of available models
+        :rtype: list
         """
         return models_dao.ml_models
 
@@ -204,6 +227,9 @@ class MLModels(Resource):
         If parameters are not set, use default values.
         If no exceptions, append model name and parameters to models_dao.ml_models_all dictionary.
         To check if the model is fitted, send a GET request to /results with a returned task id.
+
+        :return: Id of the fitting task
+        :rtype: str
         """
         json_ = request.json
         data = json_['data']
@@ -222,6 +248,10 @@ class MLModelsID(Resource):
         Return id of the celery prediction task for the given model.
         To get predictions, send a GET request to /results with a returned task id.
         Abort if the model was deleted.
+
+        :param int model_id: Model id to get predictions for
+        :return: Id of the prediction task
+        :rtype: str
         """
         return models_dao.get(model_id)
 
@@ -230,6 +260,10 @@ class MLModelsID(Resource):
         Return id of the celery re-fitting task for the given model on a new data.
         Abort if the model was deleted or a new data includes another columns.
         To get predictions, send a GET request to /results with a returned task id.
+
+        :param int model_id: Model id to retrain
+        :return: Id of the retraining task
+        :rtype: str
         """
         data = request.json
         return models_dao.update(model_id, data)
@@ -238,6 +272,10 @@ class MLModelsID(Resource):
         """
         Delete a pkl file of the given model.
         To check if the model is deleted, send a GET request to /results with a returned task id.
+
+        :param int model_id: Model id to delete pkl file for
+        :return: Nothing
+        :rtype: str
         """
         models_dao.delete(model_id)
         return '', 204
@@ -249,6 +287,9 @@ class MLModelsAll(Resource):
     def get(self):
         """
         Return a dictionary of all fitted models and their parameters.
+
+        :return: Dictionary of all fitted models
+        :rtype: dict
         """
         return models_dao.ml_models_all
 
@@ -259,6 +300,10 @@ class Results(Resource):
     def get(self, task_id):
         """
         Return result for the given task id if task is completed and status otherwise.
+
+        :param str task_id: Task id to get result for
+        :return: Task result
+        :rtype: str or dict
         """
         res = celery.AsyncResult(task_id)
         if res.status == 'PENDING':
@@ -276,6 +321,14 @@ class Metrics(db.Model):
     value = db.Column(db.Float)
 
     def __init__(self, model_id, data, metric, value):
+        """
+        Table of model performance metrics.
+
+        :param int model_id: Model id
+        :param str data: Train or test set
+        :param str metric: Performance metric
+        :param float value: Metric value
+        """
         self.model_id = model_id
         self.data = data
         self.metric = metric
@@ -289,6 +342,9 @@ class DBMetrics(Resource):
         """
         Database READ operation.
         Return a list of performance metrics for all the fitted models.
+
+        :return: Table records
+        :rtype: list
         """
         records = Metrics.query.all()
         output = []
@@ -304,7 +360,11 @@ class DBMetricsID(Resource):
     def post(self, model_id):
         """
         Database CREATE operation.
-        Add performance metrics of the given model into a database.
+        Add performance metrics of the given model into a table.
+
+        :param int model_id: Model id to insert performance metrics into a table for
+        :return: Operation result
+        :rtype: str
         """
         task = celery.send_task('get_metrics', args=[model_id])
         result = celery.AsyncResult(task.id)
@@ -321,6 +381,10 @@ class DBMetricsID(Resource):
         """
         Database READ operation.
         Return a list of performance metrics for the given model on both train and test set.
+
+        :param int model_id: Model id to get performance metrics for
+        :return: Table records for the given model
+        :rtype: list
         """
         model_records = Metrics.query.filter_by(model_id=model_id).all()
         output = []
@@ -331,8 +395,12 @@ class DBMetricsID(Resource):
     def put(self, model_id):
         """
         Database UPDATE operation.
-        Update performance metrics of the given model in a database.
+        Update performance metrics of the given model in a table.
         Should be used if the model was retrained on a new training set.
+
+        :param int model_id: Model id to update records in a table for
+        :return: Operation result
+        :rtype: str
         """
         task = celery.send_task('get_metrics', args=[model_id])
         result = celery.AsyncResult(task.id)
@@ -348,7 +416,11 @@ class DBMetricsID(Resource):
     def delete(self, model_id):
         """
         Database DELETE operation.
-        Delete performance metrics of the given model from a database.
+        Delete performance metrics of the given model from a table.
+
+        :param int model_id: Model id to delete records from a table for
+        :return: Operation result
+        :rtype: str
         """
         Metrics.query.filter_by(model_id=model_id).delete()
         db.session.commit()
